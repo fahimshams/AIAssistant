@@ -7,7 +7,7 @@ conversation = {
 }
 current_user_message = ""
 
-client = openai.Client(api_key="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")
+client = openai.Client(api_key="API KEY")
 
 
 def request(state: State, prompt: str) -> str:
