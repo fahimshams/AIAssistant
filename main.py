@@ -1,42 +1,86 @@
-import taipy as tp
-from taipy import Config, Core, Gui
+from taipy.gui import Gui, State, notify
+import openai
+
+context = "The following is a conversation with an AI assistant. The assistant is helpful, creative, clever, and very friendly.\n\nHuman: Hello, who are you?\nAI: I am an AI created by OpenAI. How can I help you today? "
+conversation = {
+    "Conversation": ["Who are you?", "Hi! I am GPT-3. How can I help you today?"]
+}
+current_user_message = ""
+
+client = openai.Client(api_key="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")
 
 
-def build_message(name: str):
-    return f"Hello {name}!"
+def request(state: State, prompt: str) -> str:
+    """
+    Send a prompt to the GPT-3 API and return the response.
+
+    Args:
+        - state: The current state.
+        - prompt: The prompt to send to the API.
+
+    Returns:
+        The response from the API.
+    """
+    response = state.client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": f"{prompt}",
+            }
+        ],
+        model="gpt-3.5-turbo",
+    )
+    return response.choices[0].message.content
 
 
-input_name_data_node_cfg = Config.configure_data_node(id="input_name")
-message_data_node_cfg = Config.configure_data_node(id="message")
-build_msg_task_cfg = Config.configure_task("build_msg", build_message, input_name_data_node_cfg, message_data_node_cfg)
-scenario_cfg = Config.configure_scenario("scenario", task_configs=[build_msg_task_cfg])
+def send_message(state: State) -> None:
+    """
+        Send the user's message to the API and update the conversation.
 
-input_name = "Taipy"
-message = None
+        Args:
+            - state: The current state.
+        """
+    # Add the user's message to the context
+    state.context += f"Human: \n {state.current_user_message}\n\n AI:"
+    notify(state, "info", f'Message Send')
+    # Send the user's message to the API and get the response
+    answer = request(state, state.context).replace("\n", "")
+    # Add the response to the context for future messages
+    state.context += answer
 
-def submit_scenario(state):
-    state.scenario.input_name.write(state.input_name)
-    state.scenario.submit()
-    state.message = scenario.message.read()
+    # Update the conversation
+    conv = state.conversation._dict.copy()
+    conv["Conversation"] += [state.current_user_message, answer]
+    state.conversation = conv
+    # Clear the input field
+    state.current_user_message = ""
+
+def style_conv(state: State, idx: int, row: int) -> str:
+    """
+    Apply a style to the conversation table depending on the message's author.
+
+    Args:
+        - state: The current state of the app.
+        - idx: The index of the message in the table.
+        - row: The row of the message in the table.
+
+    Returns:
+        The style to apply to the message.
+    """
+    if idx is None:
+        return None
+    elif idx % 2 == 0:
+        return "user_message"
+    else:
+        return "gpt_message"
 
 page = """
-Enter your name: <|{input_name}|input|>
-
-<|submit|button|on_action=submit_scenario|>
-
-Message: <|{message}|text|>
+<|{conversation}|table|show_all|style=style_conv|>
+<|{current_user_message}|input|label=Write your message here...|on_action=send_message|class_name=fullwidth|>
 """
 
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    Core().run()
-
-    scenario = tp.create_scenario(scenario_cfg)
-    Gui(page).run()
-    # hello_scenario = tp.create_scenario(scenario_cfg)
-    # hello_scenario.input_name.write("Taipy")
-    # hello_scenario.submit()
-    # print(hello_scenario.message.read())
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+if __name__ == "__main__":
+    Gui(page).run(title="Taipy Chat")
+# :param state:
+# :param prompt:
+# :return:
