@@ -1,6 +1,4 @@
 # AI Assistant
-
-## Description
 This project is an AI Assistant developed using Python, Taipy, and OpenAI API. The assistant is designed to provide advanced natural language processing capabilities for task management.
 
 ## Features
